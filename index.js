@@ -60,6 +60,10 @@ export default function (opts) {
       // drop invalid messages
       return
     }
+    console.log('something here : ' + dict.msg_type);
+    if(dict.hash !== undefined)
+    console.log('something content eventually: ' + dict.hash);
+
     switch (dict.msg_type) {
       // response on the buffer
       // { msg_type: 0 }
@@ -70,9 +74,11 @@ export default function (opts) {
         this.emit('negative', {})
         break
       case 2:
-        this.emit('signature-request', {})
+        //console.log('req content: ' + name);
+        this.emit('signature-request',{hash: dict.hash})
         break
       case 3:
+        //console.log('res content: ' + name);
         this.emit('signature-response', {})
         break
       default:
@@ -131,13 +137,15 @@ export default function (opts) {
     })
   }
 
-  wt_pocp.prototype.sendReceipt = function () {
+  wt_pocp.prototype.sendReceipt = function (name) {
+    console.log('sending ' +name);
     this._send({
-      msg_type: 2
+      msg_type: 2,
+      hash: name
     })
   }
 
-  wt_pocp.prototype.sendSignedReceipt = function () {
+  wt_pocp.prototype.sendSignedReceipt = function (name) {
     this._send({
       msg_type: 3
     })
