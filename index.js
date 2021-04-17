@@ -16,13 +16,15 @@ export default function (opts) {
   }
 
   inherits(wt_pocp, EventEmitter)
-
+  
   function wt_pocp (wire) {
     EventEmitter.call(this)
 
     console.log('wt_pocp instantiated')
 
     this._wire = wire
+
+    //forcing the node to not provide the content if the other is not eligible | allowing later
     this._wire.choke();
     this.amForceChoking = false
 
@@ -62,12 +64,16 @@ export default function (opts) {
       // response on the buffer
       // { msg_type: 0 }
       case 0:
-        console.log('Got positive response');
         this.emit('positive', {})
         break
       case 1:
-        console.log('Got negative response')
         this.emit('negative', {})
+        break
+      case 2:
+        this.emit('signature-request', {})
+        break
+      case 3:
+        this.emit('signature-response', {})
         break
       default:
         console.log('Got unknown message: ', dict)
@@ -122,6 +128,18 @@ export default function (opts) {
     this.forceChoke();
     this._send({
       msg_type: 1
+    })
+  }
+
+  wt_pocp.prototype.sendReceipt = function () {
+    this._send({
+      msg_type: 2
+    })
+  }
+
+  wt_pocp.prototype.sendSignedReceipt = function () {
+    this._send({
+      msg_type: 3
     })
   }
 
