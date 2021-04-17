@@ -63,6 +63,8 @@ export default function (opts) {
     console.log('something here : ' + dict.msg_type);
     if(dict.hash !== undefined)
     console.log('something content eventually: ' + dict.hash);
+    if(dict.signedReceipt !== undefined)
+    console.log('something content eventually: ' + dict.signedReceipt);
 
     switch (dict.msg_type) {
       // response on the buffer
@@ -79,7 +81,7 @@ export default function (opts) {
         break
       case 3:
         //console.log('res content: ' + name);
-        this.emit('signature-response', {})
+        this.emit('signature-response', dict.signedReceipt);
         break
       default:
         console.log('Got unknown message: ', dict)
@@ -145,9 +147,10 @@ export default function (opts) {
     })
   }
 
-  wt_pocp.prototype.sendSignedReceipt = function (name) {
+  wt_pocp.prototype.sendSignedReceipt = function (response) {
     this._send({
-      msg_type: 3
+      msg_type: 3,
+      signedReceipt: response
     })
   }
 
