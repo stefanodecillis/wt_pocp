@@ -23,10 +23,11 @@ export default function (opts) {
     console.log('wt_pocp instantiated')
 
     this._wire = wire
-
+    this.auth = undefined;
     //forcing the node to not provide the content if the other is not eligible | allowing later
-    this._wire.choke();
-    this.amForceChoking = false
+    this.amForceChoking = true;
+    this.waitingChecks = true;
+    this._wire.choke()
 
     console.log('Extended handshake to send:', this._wire.extendedHandshake)
 
@@ -43,8 +44,6 @@ export default function (opts) {
     if (!handshake.m || !handshake.m.wt_pocp) {
       return this.emit('warning', new Error('Peer does not support wt_pocp'))
     }
-
-    // here I will read the contract and I will send data through the signal 'pocp_handshake'
 
     this.emit('pocp_handshake', {
     })
@@ -70,19 +69,21 @@ export default function (opts) {
       // response on the buffer
       // { msg_type: 0 }
       case 0:
-        this.emit('positive', {})
+        this.emit('authorized', {})
         break
       case 1:
-        this.emit('negative', {})
+        this.emit('no-autohorized', {})
         break
       case 2:
         //console.log('req content: ' + name);
         this.emit('signature-request',{hash: dict.hash})
         break
       case 3:
-        //console.log('res content: ' + name);
         this.emit('signature-response', dict.signedReceipt);
         break
+      case 4:
+        this.emit('check-in', {})
+        break;
       default:
         console.log('Got unknown message: ', dict)
         break
@@ -98,22 +99,28 @@ export default function (opts) {
 
   wt_pocp.prototype.unchoke = function () {
     this.amForceChoking = false
+    this._wire.unchoke();
   }
 
-  wt_pocp.prototype._interceptRequests = function () {
+  wt_pocp.prototype._interceptRequests = function (status) {
     const _this = this
+    const _status = status;
     const _onRequest = this._wire._onRequest
     this._wire._onRequest = function (index, offset, length) {
-      _this.emit('request', length)
+      _this.emit('request', index, offset, length)
 
       // Call onRequest after the handlers triggered by this event have been called
       const _arguments = arguments
+
       setTimeout(function () {
-        if (!_this.amForceChoking) {
+        if (_this.waitingChecks) {
+          console.log('waiting..');
+          setTimeout(()=>_this._wire._onRequest(index, offset, length), 100);
+        } else if(!_this.amForceChoking){
           console.log('responding to request')
           _onRequest.apply(_this._wire, _arguments)
         } else {
-          console.log('force choking peer, dropping request')
+          console.log('force choking peer')
         }
       }, 0)
     }
@@ -126,13 +133,21 @@ export default function (opts) {
   wt_pocp.prototype.allow = function () {
     console.log('Send positive response')
     this.unchoke();
+    this.waitingChecks = false;
+    this.auth = true;
     this._send({
       msg_type: 0
     })
+    const _this = this;
+    const _onRequest = _this._wire._onRequest;
+    // const peerRequest = _this._wire.peerRequests[0];
+    // _onRequest.apply(_this._wire, peerRequest[0].piece, peerRequest[0].offset, peerRequest[0].length);
   }
 
   wt_pocp.prototype.deny = function () {
     console.log('Send negative response - peer has no right on torrent')
+    this.auth = false;
+    this.waitingChecks = false;
     this.forceChoke();
     this._send({
       msg_type: 1
@@ -148,9 +163,17 @@ export default function (opts) {
   }
 
   wt_pocp.prototype.sendSignedReceipt = function (response) {
+    console.log('sending..');
     this._send({
       msg_type: 3,
       signedReceipt: response
+    })
+  }
+
+  wt_pocp.prototype.sendCheckin = function () {
+    console.log('checking..');
+    this._send({
+      msg_type: 4
     })
   }
 
